@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-func DownloadHTTP(url, output string, threads int, insecure bool) error {
+func DownloadHTTP(url, output string, insecure bool) error {
 	var client *http.Client
 
 	if insecure {

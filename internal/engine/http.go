@@ -1,17 +1,34 @@
 package engine
 
 import (
+	"crypto/tls"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 )
 
-func Download(url, output string) error {
-	resp, err := http.Get(url)
+func DownloadHTTP(url, output string, threads int, insecure bool) error {
+	var client *http.Client
+
+	if insecure {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client = &http.Client{Transport: tr}
+	} else {
+		client = http.DefaultClient
+	}
+
+	resp, err := client.Get(url)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP error: %s", resp.Status)
+	}
 
 	out, err := os.Create(output)
 	if err != nil {

@@ -1,10 +1,9 @@
-# SuperGesit
+# ⚡ SuperGesit Downloader
 
-Pengunduh super cepat berbasis Go (multi-connection).
+Downloader sederhana dan cepat berbasis Go  
+Dirancang untuk Android (Termux) & Linux
 
-## Cara pakai (Termux / Linux)
+## 🚀 Cara Pakai
 
 ```bash
-git clone https://github.com/gigamovie/supergesit.git
-cd supergesit
-go run ./cmd/turbo -url https://speed.hetzner.de/10MB.bin -o test.bin
+go run ./cmd/turbo -url URL -o file

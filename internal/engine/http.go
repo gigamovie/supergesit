@@ -9,7 +9,6 @@ import (
 )
 
 func DownloadHTTP(url, output string, parts int) error {
-	// HEAD request untuk ambil ukuran file
 	resp, err := http.Head(url)
 	if err != nil {
 		return err
@@ -17,11 +16,7 @@ func DownloadHTTP(url, output string, parts int) error {
 
 	size := resp.ContentLength
 	if size <= 0 {
-		return fmt.Errorf("tidak bisa mendapatkan ukuran file")
-	}
-
-	if output == "" {
-		output = "output.bin"
+		return fmt.Errorf("server tidak mendukung HEAD / Range")
 	}
 
 	file, err := os.Create(output)
@@ -30,14 +25,12 @@ func DownloadHTTP(url, output string, parts int) error {
 	}
 	defer file.Close()
 
-	// Set ukuran file
 	err = file.Truncate(size)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("📦 File size:", size, "bytes")
-	fmt.Println("⚡ Mulai download dengan", parts, "koneksi")
+	fmt.Println("📦 Ukuran file:", size, "bytes")
 
 	partSize := size / int64(parts)
 	var wg sync.WaitGroup
@@ -54,12 +47,14 @@ func DownloadHTTP(url, output string, parts int) error {
 				end = size - 1
 			}
 
-			req, _ := http.NewRequest("GET", url, nil)
+			req, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				return
+			}
 			req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
 
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
-				fmt.Println("❌ Error part", i, err)
 				return
 			}
 			defer resp.Body.Close()
@@ -75,7 +70,7 @@ func DownloadHTTP(url, output string, parts int) error {
 				}
 				if err != nil {
 					if err != io.EOF {
-						fmt.Println("❌ Read error:", err)
+						fmt.Println("read error:", err)
 					}
 					break
 				}
@@ -86,6 +81,5 @@ func DownloadHTTP(url, output string, parts int) error {
 	}
 
 	wg.Wait()
-	fmt.Println("🎉 Download selesai")
 	return nil
 }

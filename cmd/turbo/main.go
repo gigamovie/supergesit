@@ -11,8 +11,8 @@ import (
 func main() {
 	url := flag.String("url", "", "URL file yang akan diunduh")
 	output := flag.String("o", "output.bin", "Nama file output")
-	threads := flag.Int("n", 8, "Jumlah thread (belum dipakai)")
-	insecure := flag.Bool("insecure", false, "Lewati verifikasi TLS (HANYA UNTUK PRIBADI)")
+	threads := flag.Int("n", 4, "Jumlah thread")
+	insecure := flag.Bool("insecure", false, "Lewati verifikasi TLS (HANYA PRIBADI)")
 
 	flag.Parse()
 
@@ -29,7 +29,7 @@ func main() {
 		fmt.Println("⚠️  TLS  : INSECURE MODE")
 	}
 
-	err := engine.DownloadHTTP(*url, *output, *insecure)
+	err := engine.DownloadMultiPart(*url, *output, *threads, *insecure)
 	if err != nil {
 		fmt.Println("❌ Download gagal:", err)
 		os.Exit(1)

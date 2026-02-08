@@ -1,9 +1,9 @@
-# ⚡ SuperGesit Downloader
+# ⚡ SuperGesit
 
-Downloader sederhana dan cepat berbasis Go  
-Dirancang untuk Android (Termux) & Linux
+Downloader super cepat berbasis Go  
+Support multi-thread (HTTP Range)
 
 ## 🚀 Cara Pakai
 
 ```bash
-go run ./cmd/turbo -url URL -o file
+go run ./cmd/turbo -url URL -o file -n 4

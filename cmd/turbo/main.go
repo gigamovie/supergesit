@@ -9,8 +9,11 @@ import (
 )
 
 func main() {
-	url := flag.String("url", "", "URL file")
-	out := flag.String("o", "output.bin", "Output file")
+	url := flag.String("url", "", "URL file yang akan diunduh")
+	output := flag.String("o", "output.bin", "Nama file output")
+	threads := flag.Int("n", 8, "Jumlah thread")
+	insecure := flag.Bool("insecure", false, "Lewati verifikasi TLS (TIDAK AMAN)")
+
 	flag.Parse()
 
 	if *url == "" {
@@ -18,13 +21,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("⬇️ Downloading:", *url)
+	fmt.Println("⚡ SuperGesit Downloader")
+	fmt.Println("URL     :", *url)
+	fmt.Println("Threads :", *threads)
+	fmt.Println("Output  :", *output)
+	if *insecure {
+		fmt.Println("⚠️  TLS  : INSECURE MODE")
+	}
 
-	err := engine.Download(*url, *out)
+	err := engine.DownloadHTTP(*url, *output, *threads, *insecure)
 	if err != nil {
-		fmt.Println("❌ Error:", err)
+		fmt.Println("❌ Download gagal:", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("✅ Selesai:", *out)
+	fmt.Println("✅ Download selesai")
 }

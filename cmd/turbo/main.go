@@ -10,28 +10,21 @@ import (
 
 func main() {
 	url := flag.String("url", "", "URL file")
-	output := flag.String("o", "output.bin", "Nama file output")
-	threads := flag.Int("n", 8, "Jumlah koneksi")
-
+	out := flag.String("o", "output.bin", "Output file")
 	flag.Parse()
 
 	if *url == "" {
 		fmt.Println("❌ URL wajib diisi")
-		fmt.Println("Contoh:")
-		fmt.Println("go run ./cmd/turbo -url https://example.com/file.bin -o file.bin")
 		os.Exit(1)
 	}
 
-	fmt.Println("⚡ SuperGesit Downloader")
-	fmt.Println("URL     :", *url)
-	fmt.Println("Threads :", *threads)
-	fmt.Println("Output  :", *output)
+	fmt.Println("⬇️ Downloading:", *url)
 
-	err := engine.DownloadHTTP(*url, *output, *threads)
+	err := engine.Download(*url, *out)
 	if err != nil {
-		fmt.Println("❌ Download gagal:", err)
+		fmt.Println("❌ Error:", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("✅ Download selesai")
+	fmt.Println("✅ Selesai:", *out)
 }

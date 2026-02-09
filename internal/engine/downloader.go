@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-// Gunakan User Agent Chrome asli agar tidak dianggap bot
-const fakeUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+// Gunakan User Agent Chrome versi terbaru agar dikira manusia
+const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
 
 func Download(url, output string, threads int, insecure bool) error {
 	client := &http.Client{
@@ -22,10 +22,10 @@ func Download(url, output string, threads int, insecure bool) error {
 		},
 	}
 
-	// 1. Dapatkan Ukuran File (Gunakan GET dengan Range 0-0 agar tidak kena 403/405)
+	// 1. Dapatkan Ukuran File menggunakan GET (Range 0-0) bukan HEAD
 	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("User-Agent", fakeUA)
-	req.Header.Set("Range", "bytes=0-0")
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Range", "bytes=0-0") // Teknik intip ukuran file
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -34,13 +34,14 @@ func Download(url, output string, threads int, insecure bool) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 && resp.StatusCode != http.StatusPartialContent {
-		return fmt.Errorf("HTTP %d: Akses ditolak (Forbidden/Not Found)", resp.StatusCode)
+		return fmt.Errorf("HTTP %d: Akses ditolak oleh server", resp.StatusCode)
 	}
 
-	// Cek header untuk ukuran total
+	// Ambil ukuran total file
 	var total int64
 	contentRange := resp.Header.Get("Content-Range")
 	if contentRange != "" {
+		// Format: bytes 0-0/100000000
 		parts := strings.Split(contentRange, "/")
 		if len(parts) > 1 {
 			total, _ = strconv.ParseInt(parts[1], 10, 64)
@@ -50,13 +51,13 @@ func Download(url, output string, threads int, insecure bool) error {
 	}
 
 	if total <= 0 {
-		fmt.Println("⚠️ Server tidak mendukung Range, mendownload dalam mode single...")
+		fmt.Println("⚠️ Server tidak mendukung download multi-thread. Menggunakan mode standar...")
 		return singleDownload(client, url, output)
 	}
 
-	fmt.Printf("📦 Ukuran File: %.2f MB\n", float64(total)/(1024*1024))
+	fmt.Printf("📦 Ukuran: %.2f MB | Memulai %d mesin paralel...\n", float64(total)/(1024*1024), threads)
 
-	// 2. Siapkan File
+	// 2. Siapkan file di storage
 	file, err := os.Create(output)
 	if err != nil {
 		return err
@@ -64,12 +65,12 @@ func Download(url, output string, threads int, insecure bool) error {
 	defer file.Close()
 	file.Truncate(total)
 
-	// 3. Bagi tugas per thread
+	// 3. Eksekusi Paralel
 	var wg sync.WaitGroup
 	chunkSize := total / int64(threads)
 	startTime := time.Now()
 
-	
+    
 
 	for i := 0; i < threads; i++ {
 		start := int64(i) * chunkSize
@@ -81,25 +82,26 @@ func Download(url, output string, threads int, insecure bool) error {
 		wg.Add(1)
 		go func(id int, s, e int64) {
 			defer wg.Done()
-			// Coba download potongan (retry 3x jika gagal)
+			// Coba download potongan (retry 3x)
 			for retry := 0; retry < 3; retry++ {
 				if err := downloadPart(client, url, file, s, e); err == nil {
 					return
 				}
 				time.Sleep(1 * time.Second)
 			}
+			fmt.Printf("❌ Thread %d gagal total\n", id)
 		}(i, start, end)
 	}
 
 	wg.Wait()
-	fmt.Printf("⚡ Selesai dalam: %v\n", time.Since(startTime).Round(time.Second))
+	fmt.Printf("⚡ Selesai! Waktu tempuh: %v\n", time.Since(startTime).Round(time.Millisecond))
 	return nil
 }
 
 func downloadPart(client *http.Client, url string, file *os.File, start, end int64) error {
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
-	req.Header.Set("User-Agent", fakeUA)
+	req.Header.Set("User-Agent", userAgent)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -107,7 +109,7 @@ func downloadPart(client *http.Client, url string, file *os.File, start, end int
 	}
 	defer resp.Body.Close()
 
-	// Gunakan buffer kecil untuk efisiensi RAM di Termux
+	// Gunakan buffer agar enteng di RAM Termux
 	buf := make([]byte, 32*1024)
 	curr := start
 	for {
@@ -128,7 +130,7 @@ func downloadPart(client *http.Client, url string, file *os.File, start, end int
 
 func singleDownload(client *http.Client, url, output string) error {
 	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("User-Agent", fakeUA)
+	req.Header.Set("User-Agent", userAgent)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

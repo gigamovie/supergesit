@@ -4,10 +4,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 )
 
@@ -18,31 +18,33 @@ func Download(url, output string, threads int, insecure bool) error {
 		},
 	}
 
-	// ==== CHECK RANGE SUPPORT ====
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Range", "bytes=0-0")
-	resp, err := client.Do(req)
+	// ==== STEP 1: HEAD REQUEST ====
+	resp, err := client.Head(url)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	resp.Body.Close()
 
-	if resp.StatusCode != http.StatusPartialContent {
-		fmt.Println("⚠️ Server tidak mendukung Range, fallback single download")
+	if resp.StatusCode >= 400 {
+		return errors.New("HTTP error: " + resp.Status)
+	}
+
+	sizeStr := resp.Header.Get("Content-Length")
+	if sizeStr == "" {
+		fmt.Println("⚠️ Tidak ada Content-Length, fallback single")
 		return singleDownload(client, url, output)
 	}
 
-	cr := resp.Header.Get("Content-Range")
-	if cr == "" {
-		return errors.New("Content-Range tidak ada")
-	}
-
-	// bytes 0-0/12345
-	parts := strings.Split(cr, "/")
-	total, _ := strconv.ParseInt(parts[1], 10, 64)
-
+	total, _ := strconv.ParseInt(sizeStr, 10, 64)
 	fmt.Println("📦 Ukuran file:", total, "bytes")
 
+	// ==== STEP 2: RANGE SUPPORT ====
+	if resp.Header.Get("Accept-Ranges") != "bytes" || threads <= 1 {
+		fmt.Println("⚠️ Server tidak mendukung Range, fallback single")
+		return singleDownload(client, url, output)
+	}
+
+	// ==== STEP 3: PREPARE FILE ====
 	file, err := os.Create(output)
 	if err != nil {
 		return err
@@ -54,6 +56,7 @@ func Download(url, output string, threads int, insecure bool) error {
 	chunk := total / int64(threads)
 	var wg sync.WaitGroup
 
+	// ==== STEP 4: MULTIPART ====
 	for i := 0; i < threads; i++ {
 		start := int64(i) * chunk
 		end := start + chunk - 1
@@ -64,8 +67,10 @@ func Download(url, output string, threads int, insecure bool) error {
 		wg.Add(1)
 		go func(id int, s, e int64) {
 			defer wg.Done()
-			downloadPart(client, url, file, s, e)
-			fmt.Println("⚡ Thread", id, "selesai")
+			err := downloadPart(client, url, file, s, e)
+			if err == nil {
+				fmt.Println("⚡ Thread", id, "selesai")
+			}
 		}(i, start, end)
 	}
 
@@ -83,7 +88,11 @@ func downloadPart(client *http.Client, url string, file *os.File, start, end int
 	}
 	defer resp.Body.Close()
 
-	buf := make([]byte, 32*1024)
+	if resp.StatusCode != http.StatusPartialContent {
+		return errors.New("server tidak balas 206")
+	}
+
+	buf := make([]byte, 64*1024)
 	offset := start
 
 	for {
@@ -116,16 +125,6 @@ func singleDownload(client *http.Client, url, output string) error {
 	}
 	defer out.Close()
 
-	buf := make([]byte, 32*1024)
-	for {
-		n, err := resp.Body.Read(buf)
-		if n > 0 {
-			out.Write(buf[:n])
-		}
-		if err != nil {
-			break
-		}
-	}
-	return nil
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
-

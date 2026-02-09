@@ -14,7 +14,7 @@ import (
 func main() {
 	// 1. Inisialisasi Bot
 	pref := tele.Settings{
-		Token:  "MASUKKAN_TOKEN_BOT_DARI_BOTFATHER", 
+		Token:  "8503364188:AAFCbVtSulyr2ifm5uc4BdsQ9qmQJetGCeI", 
 		Poller: &tele.LongPoller{Timeout: 10 * time.Second},
 	}
 

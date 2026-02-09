@@ -4,33 +4,26 @@ import (
 	"flag"
 	"fmt"
 	"os"
-
 	"supergesit/internal/engine"
 )
 
 func main() {
-	url := flag.String("url", "", "Download URL")
-	out := flag.String("o", "output.bin", "Output file")
-	n := flag.Int("n", 4, "Threads")
-	insecure := flag.Bool("insecure", false, "Skip TLS verify")
+	url := flag.String("url", "", "URL Video/File")
+	out := flag.String("o", "hasil_gesit.mp4", "Nama File Output")
+	n := flag.Int("n", 16, "Jumlah Thread (Saran: 16)")
+	insecure := flag.Bool("k", true, "Abaikan error SSL (Insecure)")
 
 	flag.Parse()
 
 	if *url == "" {
-		fmt.Println("URL wajib diisi")
+		fmt.Println("❌ Mana link-nya woy? Gunakan: turbo -url LINK")
 		os.Exit(1)
 	}
 
-	fmt.Println("⚡ SuperGesit Downloader")
-	fmt.Println("URL     :", *url)
-	fmt.Println("Threads :", *n)
-	fmt.Println("Output  :", *out)
-
+	fmt.Println("🚀 Menyalakan Mesin SuperGesit...")
 	err := engine.Download(*url, *out, *n, *insecure)
 	if err != nil {
-		fmt.Println("❌ Download gagal:", err)
+		fmt.Printf("💥 Mesin Meledak: %v\n", err)
 		os.Exit(1)
 	}
-
-	fmt.Println("✅ Download selesai")
 }

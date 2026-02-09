@@ -3,55 +3,56 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
+	"path"
 	"strings"
 	"time"
 
-	"supergesit/internal/engine" // Sesuaikan dengan module path kamu
+	"supergesit/internal/engine" // Pastikan import sesuai nama module di go.mod
 	tele "gopkg.in/telebot.v3"
 )
 
 func main() {
+	// 1. Inisialisasi Bot
 	pref := tele.Settings{
-		Token:  "TOKEN_BOT_KAMU_DISINI",
+		Token:  "MASUKKAN_TOKEN_BOT_DARI_BOTFATHER", 
 		Poller: &tele.LongPoller{Timeout: 10 * time.Second},
 	}
 
 	b, err := tele.NewBot(pref)
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
 
-	fmt.Println("🤖 Bot SuperGesit sedang standby...")
+	fmt.Println("⚡ Bot SuperGesit Berhasil Berjalan di Termux!")
 
+	// 2. Handler untuk pesan teks (termasuk link terusan)
 	b.Handle(tele.OnText, func(c tele.Context) error {
-		msg := c.Message()
-		var url string
-
-		// Cek apakah ada URL di dalam teks (baik pesan biasa atau terusan)
-		for _, entity := range msg.Entities {
-			if entity.Type == tele.EntityURL {
-				url = msg.Text[entity.Offset : entity.Offset+entity.Length]
-			}
-		}
-
-		if url == "" {
-			return c.Send("❌ Kirimkan pesan yang berisi link video/file.")
-		}
-
-		c.Send(fmt.Sprintf("🔍 Link Terdeteksi: %s\n⚡ Memulai download super cepat...", url))
-
-		// Nama file output (ambil dari ujung URL atau random)
-		output := "downloaded_file_" + time.Now().Format("150405") + ".bin"
+		txt := c.Text()
 		
-		// Panggil engine SuperGesit (n=16 threads)
-		err := engine.Download(url, output, 16, true)
-		if err != nil {
-			return c.Send("❌ Gagal download: " + err.Error())
+		// Deteksi apakah ada link (sederhana)
+		if !strings.HasPrefix(txt, "http") {
+			return c.Send("❌ Kirimkan link video/file yang valid (dimulai dengan http/https).")
 		}
 
-		// Kirim info file berhasil diunduh ke server bot
-		return c.Send(fmt.Sprintf("✅ Berhasil diunduh ke server!\nOutput: %s\nUkuran file tersimpan di storage server.", output))
+		// Tentukan nama file dari ujung URL
+		fileName := path.Base(txt)
+		if strings.Contains(fileName, "?") {
+			fileName = strings.Split(fileName, "?")[0]
+		}
+		
+		c.Send(fmt.Sprintf("🚀 Link diterima!\n📦 Nama File: %s\n⚡ Sedang mengunduh dengan 16 thread...", fileName))
+
+		// 3. Panggil Mesin SuperGesit
+		start := time.Now()
+		err := engine.Download(txt, fileName, 16, true)
+		
+		if err != nil {
+			return c.Send("❌ Gagal: " + err.Error())
+		}
+
+		durasi := time.Since(start).Round(time.Second)
+		return c.Send(fmt.Sprintf("✅ DOWNLOAD SELESAI!\n⏱️ Waktu: %v\n📍 Lokasi: %s", durasi, fileName))
 	})
 
 	b.Start()
